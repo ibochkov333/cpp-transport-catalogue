@@ -2,13 +2,13 @@
 
 namespace transport_catalogue {
 
-void TransportCatalogue::AddStop(domain::Stop stop) {
+void TransportCatalogue::AddStop(const domain::Stop& stop) {
     stops_.emplace_back(stop);
     stop_indexes_[stops_.back().name] = &stops_.back();
     stop_to_buses_[&stops_.back()];
 }
 
-void TransportCatalogue::AddBus(domain::Bus bus) {
+void TransportCatalogue::AddBus(const domain::Bus& bus) {
     buses_.emplace_back(bus);
 
     const auto& stops = buses_.back().route;

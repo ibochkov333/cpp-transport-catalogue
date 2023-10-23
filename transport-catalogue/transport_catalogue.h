@@ -17,9 +17,9 @@ class TransportCatalogue {
 public:
     explicit TransportCatalogue() = default;
 
-    void AddStop(domain::Stop stop); 
+    void AddStop(const domain::Stop& stop); 
 
-    void AddBus(domain::Bus bus); 
+    void AddBus(const domain::Bus& bus); 
 
     domain::Stop* FindStop(std::string_view stop_name) const; 
 
