@@ -79,6 +79,27 @@ CommandDescription ParseCommandDescription(std::string_view line) {
             std::string(line.substr(colon_pos + 1))};
 }
 
+std::string AsString(std::string_view strv) {
+    return {strv.begin(), strv.end()};
+}
+
+uint64_t StringToInt(std::string& str) {
+    int res = 0;
+    for (int i = 0; i < str.size(); i++) {
+        res += (str[i] - '0') * std::pow(10, str.size() - 1 - i);
+    }
+    return res;
+}
+
+std::pair<std::string_view, uint64_t> ParseDestination(std::string_view str){
+    std::string meters_s = (AsString(str).substr(0, str.find_first_of('m')));
+    uint64_t meters_i = StringToInt(meters_s);
+
+    std::string_view dest_name = Trim(str.substr(str.find_first_of('o', 0) + 1));
+
+    return {dest_name, meters_i};
+}
+
 void InputReader::ParseLine(std::string_view line) {
     auto command_description = ParseCommandDescription(line);
     if (command_description) {
@@ -97,7 +118,7 @@ void InputReader::ApplyCommands([[maybe_unused]] TransportCatalogue& catalogue) 
             bus_commands.push_back(cmd);
         }
     }
-
+    
     for (const auto& cmd : stop_commands) {
         geo::Coordinates coordinates = ParseCoordinates(cmd.description);
         catalogue.AddStop({cmd.id, coordinates});
@@ -115,6 +136,16 @@ void InputReader::ApplyCommands([[maybe_unused]] TransportCatalogue& catalogue) 
             bus.route.push_back(stop);
         }
         catalogue.AddBus(bus);
+    }
+
+    for (auto cmd : stop_commands) {
+        auto current_stop = cmd.id;
+        auto distances_for_stops = Split(cmd.description, ',');
+
+        for (size_t i = 2; i < distances_for_stops.size(); ++i) {
+            auto p = ParseDestination(distances_for_stops[i]);
+            catalogue.AddStopsDistance({current_stop, p.first, p.second});
+        }
     }
 }
 

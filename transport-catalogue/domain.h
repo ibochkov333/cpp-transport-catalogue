@@ -21,7 +21,7 @@ struct Bus {
 struct BusStat {
     uint64_t stop_count = 0;
     uint64_t unique_stop_count = 0;
-    double route_length = 0.;
+    uint64_t route_length = 0;
     double curvature = 0.;
 };
 

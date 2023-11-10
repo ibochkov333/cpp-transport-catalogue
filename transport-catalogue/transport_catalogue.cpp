@@ -35,32 +35,37 @@ domain::Bus* TransportCatalogue::FindBus(std::string_view bus_name) const {
 
 domain::BusStat TransportCatalogue::GetRouteInfo(domain::Bus* bus) const {
     domain::BusStat route_info;
-    route_info.stop_count = bus->is_circle ? bus->route.size() : 2 * bus->route.size() - 1;
+	route_info.stop_count = bus->is_circle ? bus->route.size() : 2 * bus->route.size() - 1;
+	{
+		std::unordered_set<std::string_view> unique_stops;
+		for (const auto stop_ptr : bus->route) {
+			unique_stops.insert(std::string_view(stop_ptr->name));
+		}
+		route_info.unique_stop_count = unique_stops.size();
+	}
 
-    {
-        std::unordered_set<std::string_view> unique_stops;
-        for (const auto& stop_ptr : bus->route) {
-            unique_stops.insert(std::string_view(stop_ptr->name));
-        }
-        route_info.unique_stop_count = unique_stops.size();
-    }
+	double straight_length = 0.;
+	route_info.route_length = bus->is_circle
+			? 0
+			: FindDistance(bus->route.back(), bus->route.back());
+	{
+		const auto& bus_route = bus->route;
+		const size_t size = bus_route.size();
 
-    route_info.route_length = 0.;
+		for (size_t i = 1; i < size; ++i) {
+			const double distance = geo::ComputeDistance(bus_route[i]->coordinates, bus_route[i - 1]->coordinates);
+			straight_length += bus->is_circle ? distance : 2. * distance;
 
-    const auto& bus_route = bus->route;
-    const size_t size = bus_route.size();
+			route_info.route_length += bus->is_circle
+					? FindDistance(bus_route[i - 1], bus_route[i])
+					: (FindDistance(bus_route[i - 1], bus_route[i])
+							+ FindDistance(bus_route[i], bus_route[i - 1]));
+		}
+	}
 
-    for (size_t i = 1; i < size; ++i) {
-        double distance = ComputeDistance(bus_route[i - 1]->coordinates, bus_route[i]->coordinates);
-        route_info.route_length += distance;
-    }
+	route_info.curvature = route_info.route_length / straight_length;
 
-    if (!bus->is_circle) {
-        double distance = ComputeDistance(bus_route[size - 1]->coordinates, bus_route[0]->coordinates);
-        route_info.route_length += distance;
-    }
-    
-    return route_info;
+	return route_info;
 }
 
 std::set<std::string_view> TransportCatalogue::GetBusesForStop(std::string_view stop_name) const {
@@ -74,6 +79,27 @@ std::set<std::string_view> TransportCatalogue::GetBusesForStop(std::string_view 
     }
 
     return result;
+}
+
+void TransportCatalogue::AddStopsDistance(const domain::FromToDistance& stops_distance) {
+    auto from = FindStop(stops_distance.from);
+    auto to = FindStop(stops_distance.to);
+
+    if (stops_distances_.count({from, to}) == 0) {
+        stops_distances_[std::make_pair(from, to)] = stops_distance.distance;
+        stops_distances_[std::make_pair(to, from)] = stops_distance.distance;
+    } else {
+        stops_distances_[std::make_pair(from, to)] = stops_distance.distance;
+    }
+}
+
+uint64_t TransportCatalogue::FindDistance(domain::Stop* start, domain::Stop* destination) const {
+    if (const auto& stop_ptr_pair = std::make_pair(start, destination); stops_distances_.count(stop_ptr_pair)) {
+		return stops_distances_.at(stop_ptr_pair);
+	} else if (const auto& stop_ptr_pair = std::make_pair(destination, start); stops_distances_.count(stop_ptr_pair)) {
+		return stops_distances_.at(stop_ptr_pair);
+	}
+	return 0;
 }
 
 } // transport_catalogue
